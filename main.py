@@ -1,12 +1,23 @@
-from fastapi import FastAPI
-from models.item import Item
-from fastapi import FastAPI, Form
+import os
 from typing import Annotated
+
+from dotenv import load_dotenv
+from fastapi import (
+    FastAPI,
+    Form,
+    Response,
+    HTTPException,
+    status
+)
+from supabase import Client, create_client
+
+from models.item import Item
 from models.form_data import FormData
-from fastapi import FastAPI, Form, Response
-from fastapi import FastAPI, Form, Response, HTTPException, status
+from models.task import Task
 
 
+load_dotenv()
+supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_PUBLISHABLE_KEY"))
 
 app = FastAPI()
 
@@ -113,3 +124,58 @@ def create_item(
         content=message,
         status_code=status.HTTP_201_CREATED
     )
+    
+#supabase
+@app.post("/tasks/")
+def create_task(task: Task):
+  data = supabase.table("task").insert({
+      "title": task.title,
+      "description": task.description
+  }).execute()
+  return data.data
+
+@app.get("/tasks/")
+def get_tasks():
+   data = supabase.table("task").select("*").execute()
+   return data.data
+
+@app.get("/tasks/{task_id}")
+def get_task(task_id: int):
+    data = (
+        supabase
+        .table("task")
+        .select("*")
+        .eq("id", task_id)
+        .execute()
+    )
+
+    return data.data
+
+@app.put("/tasks/{task_id}")
+def update_task(task_id: int, task: Task):
+
+    data = (
+        supabase
+        .table("task")
+        .update({
+            "title": task.title,
+            "description": task.description
+        })
+        .eq("id", task_id)
+        .execute()
+    )
+
+    return data.data
+
+@app.delete("/tasks/{task_id}")
+def delete_task(task_id: int):
+
+    data = (
+        supabase
+        .table("task")
+        .delete()
+        .eq("id", task_id)
+        .execute()
+    )
+
+    return data.data
