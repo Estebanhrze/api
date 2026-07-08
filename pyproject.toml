@@ -5,9 +5,9 @@ description = "Mi proyecto"
 requires-python = ">=3.10"
 dependencies = [
    "fastapi[standard]",
-   "pydantic==<VERSION_ESTABLE_DE_PYDANTIC>",
-   "python-dotenv==<VERSION_ESTABLE_DE_PYTHON_DOTENV>",
-   "supabase==<VERSION_ESTABLE_DE_SUPABASE>"
+   "pydantic==2.13.4",
+   "python-dotenv==1.2.2",
+   "supabase==2.31.0"
  ]
 
 [tool.fastapi]
