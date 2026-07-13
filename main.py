@@ -14,12 +14,17 @@ from supabase import Client, create_client
 from models.item import Item
 from models.form_data import FormData
 from models.task import Task
+import requests
 
+from fastapi import Depends
+from fastapi.security import HTTPBearer
+from fastapi.security import HTTPAuthorizationCredentials
 
+security = HTTPBearer()
+app = FastAPI()
 load_dotenv()
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_PUBLISHABLE_KEY"))
 
-app = FastAPI()
 
 fake_items_db = [{"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"}, {"item_name": "Qux"}, {"item_name": "Quux"}, {"item_name": "Corge"}, {"item_name": "Grault"}, {"item_name": "Garply"}, {"item_name": "Waldo"}, {"item_name": "Fred"}, {"item_name": "Plugh"}, {"item_name": "Xyzzy"}, {"item_name": "Thud"}]
 
@@ -125,6 +130,42 @@ def create_item(
         status_code=status.HTTP_201_CREATED
     )
     
+
+def get_supabase_client(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> Client:
+
+    token = credentials.credentials
+
+    try:
+        client = create_client(
+            os.getenv("SUPABASE_URL"),
+            os.getenv("SUPABASE_PUBLISHABLE_KEY")
+        )
+
+        client.postgrest.auth(token)
+
+        return client
+
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Token inválido"
+        )
+        
+        
+@app.get("/tasks/")
+def get_tasks(
+    supabase: Client = Depends(get_supabase_client)
+):
+    data = (
+        supabase
+        .table("task")
+        .select("*")
+        .execute()
+    )
+
+    return data.data
 #supabase
 @app.post("/tasks/")
 def create_task(task: Task):
@@ -132,12 +173,10 @@ def create_task(task: Task):
       "title": task.title,
       "description": task.description
   }).execute()
-  return data.data
+  return data.data        
 
-@app.get("/tasks/")
-def get_tasks():
-   data = supabase.table("task").select("*").execute()
-   return data.data
+
+
 
 @app.get("/tasks/{task_id}")
 def get_task(task_id: int):
@@ -179,3 +218,36 @@ def delete_task(task_id: int):
     )
 
     return data.data
+
+@app.post("/auth/login-temporal")
+def login_temporal(email: str, password: str):
+
+    url = f"{os.getenv('SUPABASE_URL')}/auth/v1/token?grant_type=password"
+
+    headers = {
+        "apikey": os.getenv("SUPABASE_PUBLISHABLE_KEY"),
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "email": email,
+        "password": password
+    }
+
+    response = requests.post(
+        url,
+        json=payload,
+        headers=headers
+    )
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail="Credenciales incorrectas en Supabase"
+        )
+
+    return {
+        "access_token": response.json()["access_token"]
+    }
+    
+    
