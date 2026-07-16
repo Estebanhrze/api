@@ -1,30 +1,32 @@
 import os
+import requests
+from fastapi import FastAPI, Form, Response, HTTPException, status, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated
-
-from dotenv import load_dotenv
-from fastapi import (
-    FastAPI,
-    Form,
-    Response,
-    HTTPException,
-    status
-)
-from supabase import Client, create_client
-
 from models.item import Item
 from models.form_data import FormData
 from models.task import Task
-import requests
+from supabase import create_client, Client
+from dotenv import load_dotenv
 
-from fastapi import Depends
-from fastapi.security import HTTPBearer
-from fastapi.security import HTTPAuthorizationCredentials
-
-security = HTTPBearer()
-app = FastAPI()
 load_dotenv()
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_PUBLISHABLE_KEY"))
 
+app = FastAPI()
+
+security = HTTPBearer()
+
+def get_supabase_client(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Client:
+    token = credentials.credentials
+    try:
+        client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_PUBLISHABLE_KEY"))
+        client.postgrest.auth(token)
+        return client
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de Supabase inválido o expirado" 
+        )
 
 fake_items_db = [{"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"}, {"item_name": "Qux"}, {"item_name": "Quux"}, {"item_name": "Corge"}, {"item_name": "Grault"}, {"item_name": "Garply"}, {"item_name": "Waldo"}, {"item_name": "Fred"}, {"item_name": "Plugh"}, {"item_name": "Xyzzy"}, {"item_name": "Thud"}]
 
@@ -131,29 +133,6 @@ def create_item(
         status_code=status.HTTP_201_CREATED
     )
     
-
-def get_supabase_client(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-) -> Client:
-
-    token = credentials.credentials
-
-    try:
-        client = create_client(
-            os.getenv("SUPABASE_URL"),
-            os.getenv("SUPABASE_PUBLISHABLE_KEY")
-        )
-
-        client.postgrest.auth(token)
-
-        return client
-
-    except Exception:
-        raise HTTPException(
-            status_code=401,
-            detail="Token inválido"
-        )
-        
         
 @app.get("/tasks/")
 def get_tasks(
